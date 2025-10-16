@@ -1,0 +1,105 @@
+#!/bin/bash
+
+# Validate input
+if [ $# -lt 3 ]; then
+    echo "Usage: $0 <alert_file> <unused_param> <telegram_url>"
+    exit 1
+fi
+
+
+# Parameter input
+ALERT_FILE="$1"
+TELEGRAM_URL="$3"
+CHAT_ID=""                # Change your Chat ID or Group Chat ID
+THREAD_ID=""              # Opsional, if you want send alert to Topic Group
+TIMEZONE="Asia/Jakarta"   # Change with your Timezone
+
+# Extract json data using `jq`
+if command -v jq >/dev/null 2>&1; then
+    DESCRIPTION=$(jq -r '.rule.description' "${ALERT_FILE}")
+    LEVEL=$(jq -r '.rule.level' "${ALERT_FILE}")
+    AGENT_NAME=$(jq -r '.agent.name' "${ALERT_FILE}")
+    AGENT_IP=$(jq -r '.agent.ip' "${ALERT_FILE}")
+    LOG=$(jq -r '.full_log' "${ALERT_FILE}")
+    MESSAGES=$(jq -r '.data.win.system.message' "${ALERT_FILE}")
+
+    RAW_TIMESTAMP=$(jq -r '.timestamp' "${ALERT_FILE}")
+    EPOCH=$(date -d "$RAW_TIMESTAMP" +"%s")
+    TIMESTAMP=$(TZ="$TIMEZONE" date -d "@$EPOCH" +"%Y-%m-%d %H:%M:%S")
+else
+    # Fallback if `jq` isn't ready, this not optimal alert info but will replaced with `jq` if it already
+    DESCRIPTION=$(grep -oP '"description"\s*:\s*"\K[^"]+' "${ALERT_FILE}")
+    LEVEL=$(grep -oP '"level"\s*:\s*\K[0-9]+' "${ALERT_FILE}")
+    AGENT_NAME=$(grep -oP '"agent"\s*:\s*{\s*"name"\s*:\s*"\K[^"]+' "${ALERT_FILE}")
+    AGENT_IP=$(grep -oP '"agent"\s*:\s*{\s*"ip"\s*:\s*"\K[^"]+' "${ALERT_FILE}")
+    LOG=$(grep -oP '"full_log"\s*:\s*"\K[^"]+' "${ALERT_FILE}")
+    
+    MESSAGES=$(grep -oP '"message"\s*:\s*"\K[^"]+' "${ALERT_FILE}")
+    MESSAGES=$(echo "$MESSAGES" | sed 's/^\\"\(.*\)\\"$/\1/')
+    MESSAGES=$(echo "$MESSAGES" | sed 's/\\"/"/g')
+
+    RAW_TIMESTAMP=$(grep -oP '"timestamp"\s*:\s*"\K[^"]+' "${ALERT_FILE}")
+    EPOCH=$(date -d "$RAW_TIMESTAMP" +"%s")
+    TIMESTAMP=$(TZ="$TIMEZONE" date -d "@$EPOCH" +"%Y-%m-%d %H:%M:%S")
+fi
+
+# Send custom message if result is empty
+DESCRIPTION="${DESCRIPTION:-"No description"}"
+if [ "$DESCRIPTION" = "null" ] || [ -z "$DESCRIPTION" ]; then
+  DESCRIPTION="No description"
+fi
+
+LEVEL="${LEVEL:-"N/A"}"
+if [ "$LEVEL" = "null" ] || [ -z "$LEVEL" ]; then
+  LEVEL="N/A"
+fi
+
+AGENT="${AGENT_NAME:-"Unknown Agent"}"
+if [ "$AGENT" = "null" ] || [ -z "$AGENT" ]; then
+  AGENT="Unknown Agent"
+fi
+
+HOST="${AGENT_IP:-"Unknown IP"}"
+if [ "$HOST" = "null" ] || [ -z "$HOST" ]; then
+  HOST="Unknown IP"
+fi
+
+LOG="${LOG:-"No log details"}"
+if [ "$LOG" = "null" ] || [ -z "$LOG" ]; then
+  LOG="No log details"
+fi
+
+# This varibale messages is from `data.win.system.message`, add this variable to message if you need.
+MESSAGES="${MESSAGES:-"No message details"}"
+if [ "$MESSAGES" = "null" ] || [ -z "$MESSAGES" ]; then
+  MESSAGES="No message details"
+fi
+
+# Format alert using Markdown when sending to Telegram
+MESSAGE="*🚨 Wazuh Alert Report 🚨*
+*Time*: \`${TIMESTAMP}\`
+*Alert Level*: \`${LEVEL}\`
+*Agent*: *${AGENT}* - \`${HOST}\`
+*Description*:
+_${DESCRIPTION}_
+
+*Log*:
+\`\`\`
+${LOG}
+\`\`\`"
+
+# Send notification using Markdown format
+if [ -n "${THREAD_ID}" ]; then
+    curl -s -X POST "${TELEGRAM_URL}" \
+        -d "chat_id=${CHAT_ID}" \
+        -d "text=${MESSAGE}" \
+        -d "message_thread_id=${THREAD_ID}" \
+        -d "parse_mode=Markdown"
+else
+    curl -s -X POST "${TELEGRAM_URL}" \
+        -d "chat_id=${CHAT_ID}" \
+        -d "text=${MESSAGE}" \
+        -d "parse_mode=Markdown"
+fi
+
+exit 0

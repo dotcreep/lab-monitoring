@@ -1,0 +1,16 @@
+services:
+  postfix-relay:
+    image: catatnight/postfix
+    container_name: postfix-relay
+    environment:
+      - maildomain=mail.local
+      - relayhost=[smtp.gmail.com]:465
+      - smtp_user=dimas.hendrajs@gmail.com:qegxkwouabiuuvxl
+      - smtp_tls_security_level=encrypt
+      - smtp_use_tls=yes
+      - smtp_sasl_auth_enable=yes
+      - smtp_sasl_password_maps=static:dimas.hendrajs@gmail.com:qegxkwouabiuuvxl
+      - smtp_sasl_security_options=noanonymous
+    # ports:
+    #   - "25:25"
+    restart: unless-stopped

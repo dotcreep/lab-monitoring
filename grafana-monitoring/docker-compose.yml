@@ -1,0 +1,51 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus-data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - promnetwork
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+    ports:
+      - "13000:3000"
+    networks:
+      - promnetwork
+  
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: always
+    # ports:
+    #   - "9393:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - promnetwork
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    command:
+      - '--path.rootfs=/host'
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - '/:/host:ro'
+
+networks:
+  promnetwork:
+    name: promnetwork

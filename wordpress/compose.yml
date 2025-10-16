@@ -1,0 +1,43 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN} # TODO
+    restart: always
+    networks:
+      - wp-test
+  wordpress-backup:
+    image: wordpress:latest
+    restart: always
+    ports:
+      - 8080:80
+    environment:
+      WORDPRESS_DB_HOST: ip:port # TODO
+      WORDPRESS_DB_USER: user_wordpress
+      WORDPRESS_DB_PASSWORD: pass_wordpress
+      WORDPRESS_DB_NAME: db_wordpress
+    volumes:
+      - wordpress-backup:/var/www/html
+    networks:
+      - wp-test
+  wordpress-primary:
+    image: wordpress:latest
+    restart: always
+    ports:
+      - 8080:80
+    environment:
+      WORDPRESS_DB_HOST: ip:port # TODO
+      WORDPRESS_DB_USER: user_wordpress
+      WORDPRESS_DB_PASSWORD: pass_wordpress
+      WORDPRESS_DB_NAME: db_wordpress
+    volumes:
+      - wordpress-primary:/var/www/html
+    networks:
+      - wp-test
+networks:
+  wp-test:
+    name: wp-test
+volumes:
+  wordpress-primary:
+    name: wordpress-primary
+  wordpress-backup:
+    name: wordpress-backup

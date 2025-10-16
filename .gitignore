@@ -1,0 +1,5 @@
+wazuh-monitoring/wazuh-docker
+zabbix-monitoring/proxy-data
+trial/
+grafana-monitoring/grafana_data
+grafana-monitoring/prometheus-data
