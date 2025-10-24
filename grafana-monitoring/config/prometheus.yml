@@ -1,0 +1,110 @@
+# my global config
+global:
+  scrape_interval: 1s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 1s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  # - job_name: "docker"
+  #   scrape_interval: 1s
+  #   scrape_timeout: 1s
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ["ip:port"]
+  #       labels:
+  #         app: "server-1"
+  #     - targets: ["ip:port"]
+  #       labels:
+  #         app: "server-2"
+  - job_name: "prometheus"
+    scrape_interval: 1s
+    scrape_timeout: 1s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["172.31.61.16:9090", "172.31.61.16:9100"]
+        labels:
+          app: "prometheus"
+  - job_name: "windows"
+    scrape_interval: 1s
+    scrape_timeout: 1s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["172.31.48.1:9182"]
+        labels:
+          app: "windows-1"
+  - job_name: 'blackbox'
+    scrape_interval: 1s
+    scrape_timeout: 1s
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://www.google.com
+          - https://www.netflix.com
+          - https://www.youtube.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        # regex: 'https?://([^/:]+).*'
+        target_label: instance
+        replacement: '$1'
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
+
+  - job_name: 'blackbox_icmp'
+    scrape_interval: 1s
+    scrape_timeout: 1s
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    static_configs:
+      - targets:
+          - 192.168.2.1
+          - 172.16.10.100
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        # regex: '([^:]+).*'
+        target_label: instance
+        replacement: '$1'
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
+
+  - job_name: 'blackbox_tcp'
+    scrape_interval: 1s
+    scrape_timeout: 1s
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - google.com:443
+          - smtp.gmail.com:587
+          - 172.16.10.100:22
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        # regex: '([^:]+).*'
+        target_label: instance
+        replacement: '$1'
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
